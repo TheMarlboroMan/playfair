@@ -1,0 +1,10 @@
+set(SOURCE
+	${SOURCE}
+	${CMAKE_CURRENT_SOURCE_DIR}/alphabet.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/exception.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/classic_key.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/key.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/message.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/cypher.cpp
+	PARENT_SCOPE
+)
