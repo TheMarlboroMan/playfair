@@ -1,13 +1,16 @@
-#include <iostream>
-
 #include <tools/arg_manager.h>
 #include <playfair/alphabet.h>
 #include <playfair/classic_key.h>
 #include <playfair/message.h>
 #include <playfair/cypher.h>
 
+#include <iostream>
+#include <fstream>
+
 void usage(const std::string&);
 bool choose_mode(const std::string&, std::string&, int&, int&, char&);
+void key_from_file(const std::string&, std::string&, int&, int&);
+void alphabet_from_file(const std::string&, std::string&);
 
 int main(int argc, char ** argv) {
 
@@ -18,7 +21,7 @@ int main(int argc, char ** argv) {
 		height=0;
 		
 	std::string str_alphabet, str_key, str_message;
-	bool print_table=false;
+	bool print_table=false, show_warnings=true;
 	
 	char substitution{0};
 	
@@ -39,7 +42,49 @@ int main(int argc, char ** argv) {
 			++i;
 			continue;
 		}
+
+		if(arg=="--key_file") {
+
+			const auto filename=argm.arg_follows(arg) ? argm.get_following(arg) : "";
+			if(0==filename.size()) {
+
+				usage("key filename must be specified after --key_file");
+				return 1;
+			}
+
+			try {
+				key_from_file(filename, str_key, width, height);
+				i++;
+				continue;
+			}
+			catch(std::exception& e) {
+
+				usage(e.what());
+				return 1;
+			}
+		}
 		
+		if(arg=="--alphabet_file") {
+		
+			const auto filename=argm.arg_follows(arg) ? argm.get_following(arg) : "";
+			if(0==filename.size()) {
+
+				usage("alphabet filename must be specified after --alphabet_file");
+				return 1;
+			}
+
+			try {
+				alphabet_from_file(filename, str_alphabet);
+				i++;
+				continue;
+			}
+			catch(std::exception& e) {
+
+				usage(e.what());
+				return 1;
+			}
+		}
+
 		if(arg=="--alphabet") {
 		
 			str_alphabet=argm.arg_follows(arg) ? argm.get_following(arg) : "";
@@ -141,6 +186,12 @@ int main(int argc, char ** argv) {
 			print_table=true;
 			continue;
 		}
+
+		if(arg=="--no_warnings") {
+
+			show_warnings=false;
+			continue;
+		}
 		
 		usage(std::string{"unkown argument "}+arg);
 		return 1;
@@ -171,7 +222,7 @@ int main(int argc, char ** argv) {
 		
 		//initialize message
 		playfair::message msg{str_message, alphabet};
-		if(msg.size() != str_message.size()) {
+		if(msg.size() != str_message.size() && show_warnings) {
 			
 			std::cout<<"warning: message dropped unkown characters"
 				<<std::endl
@@ -248,6 +299,77 @@ bool choose_mode(
 	return true;
 }
 
+void key_from_file(
+	const std::string& _filename,  
+	std::string& _key, 
+	int& _width, 
+	int& _height
+) {
+
+	if(_key.size() || _width || _height) {
+
+		throw std::runtime_error("key file is not compatible with manual key parameters");
+	}
+
+	std::ifstream file{_filename};
+
+	if(!file) {
+
+		throw std::runtime_error{"unable to read key file"};
+	}
+
+	std::string line;
+	while(true) {
+
+		std::getline(file, line);
+		if(file.eof()) {
+
+			break;
+		}
+
+		if(!line.size()) {
+
+			continue;
+		}
+
+		if(0 != _width && (int)line.size() != _width) {
+
+			throw std::runtime_error("non-constant key width");
+		}
+
+		_width=line.size();
+		_key+=line;
+		++_height;
+	}
+
+	if(!_key.size()) {
+
+		throw std::runtime_error("key file has no effective length");
+	}
+}
+
+void alphabet_from_file(
+	const std::string& _filename, 
+	std::string& _alphabet
+) {
+	if(_alphabet.size()) {
+
+		throw std::runtime_error("alphabet file is not compatible with manual key parameters");
+	}
+
+	std::ifstream file{_filename};
+	if(!file) {
+
+		throw std::runtime_error{"unable to read alphabet file"};
+	}
+
+	std::getline(file, _alphabet);
+	if(!_alphabet.size()) {
+
+		throw std::runtime_error("alphabet file has no effective length");
+	}
+}
+
 void usage(
 	const std::string& _err
 ) {
@@ -261,7 +383,9 @@ void usage(
 		<<"options:"<<std::endl		
 		<<"\t--mode: shorthand for cypher options, see \"modes\" below."<<std::endl
 		<<"\t--alphabet: specifies the full alphabet to be used"<<std::endl
+		<<"\t--alphabet_file: specified the alphabet by a file containing a single line with a continuous string of characters"<<std::endl
 		<<"\t--key: specifies the cypher key"<<std::endl
+		<<"\t--key_file: reads key from file, which must be formatted as a grid"<<std::endl
 		<<"\t--message: specifies the message to encode / decode"<<std::endl
 		<<"\t--substitution: specifies substitution character for fills and missing characters"<<std::endl
 		<<"\t--width: specifies cypher table width"<<std::endl
@@ -269,6 +393,7 @@ void usage(
 		<<"\t--cypher: uses cypher mode"<<std::endl
 		<<"\t--decypher: uses decypher mode"<<std::endl
 		<<"\t--print_table: prints the cypher table before the result"<<std::endl
+		<<"\t--no_warnings: hides warnings in the output"<<std::endl
 		<<std::endl
 		<<"modes:"<<std::endl
 		<<"\tclassic: shorthand for an alphabet of ABCDEFGHIKLMNOPQRSTUVWXYZ with dimensions of 5x5 and X as a substitution character"<<std::endl
